@@ -3,73 +3,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Stream Player</title>
+    <title>Playing Channel...</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     <style>
         body {
-            background: #121212;
+            background: linear-gradient(145deg, #121212, #2c2c2c);
             color: white;
             font-family: 'Poppins', sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
             margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
         }
-        #player {
-            width: 80%;
-            max-width: 800px;
-            border-radius: 10px;
-            background: #333;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+
+        #videoContainer {
+            max-width: 900px;
+            width: 95%;
+            background: rgba(30, 30, 30, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
         }
+
         h1 {
             text-align: center;
-            font-size: 2rem;
-            margin: 20px;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #f7f7f7;
+        }
+
+        #player {
+            border-radius: 15px;
+            width: 100%;
+            height: auto;
+        }
+
+        #liveIndicator {
+            background: #e91e63;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+
+        .button-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            display: inline-block;
+            background: #1a73e8;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            text-transform: uppercase;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
+        }
+
+        .btn:hover {
+            background: #0f5bbf;
+        }
+
+        .footer {
+            font-size: 0.9rem;
+            margin-top: 30px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .footer a {
+            color: #1a73e8;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        .loader {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top: 5px solid #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
         }
     </style>
 </head>
 <body>
-    <div>
-        <h1 id="channel-name">Loading...</h1>
-        <video id="player" controls autoplay></video>
+    <div id="videoContainer">
+        <h1 id="channel-name">Live Stream</h1>
+        <div class="video-container" style="position: relative;">
+            <div id="liveIndicator">LIVE</div>
+            <video id="player" playsinline controls></video>
+            <div class="loader" id="loader"></div>
+        </div>
+        <div class="button-container">
+            <a href="https://t.me/s/unknownXplaylists" class="btn" target="_blank">Join Telegram</a>
+            <a href="https://unknown-playlists-jazz4k.vercel.app/" class="btn btn-secondary" target="_blank">More Channels...</a>
+        </div>
+    </div>
+    <div class="footer">
+        Website made by - <a href="https://t.me/StevoSure" target="_blank">StevoSure</a>
     </div>
 
     <script>
         // Extract URL and name from query parameters
         const params = new URLSearchParams(window.location.search);
         const streamUrl = decodeURIComponent(params.get('url'));
-        const channelName = decodeURIComponent(params.get('name')) || 'Live Stream';
-
-        // Set the channel name
+        const channelName = decodeURIComponent(params.get('name')) || "Live Stream";
         document.getElementById('channel-name').innerText = channelName;
 
+        const loader = document.getElementById('loader');
         const playerElement = document.getElementById('player');
 
-        // Initialize the player
+        // Initialize the player using Plyr and HLS.js
         function initializePlayer(sourceUrl) {
+            const player = new Plyr(playerElement, {
+                autoplay: true,
+                controls: ['play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen'],
+                muted: false
+            });
+
+            // Check if HLS.js is supported by the browser
             if (Hls.isSupported() && sourceUrl) {
-                const hls = new Hls();
+                const hls = new Hls({
+                    startLevel: -1,
+                    autoStartLoad: true,
+                    capLevelToPlayerSize: true,
+                    maxBufferLength: 30,
+                    maxMaxBufferLength: 60,
+                    maxBufferSize: 50 * 1000 * 1000,
+                });
+
+                // Load the stream URL into HLS.js
                 hls.loadSource(sourceUrl);
-                hls.attachMedia(playerElement);
+                hls.attachMedia(player.media);
+
+                // Show loader while the stream is loading
+                loader.style.display = 'block';
+
+                // Hide loader once the manifest is parsed
                 hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                    console.log("HLS Stream loaded");
+                    loader.style.display = 'none';
+                });
+
+                // Handle any errors that may occur during playback
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    console.error(`HLS.js Error: ${data.details}`);
+                    if (data.details === "bufferStalledError" || data.details === "networkError") {
+                        hls.startLoad();
+                    }
                 });
             } else if (sourceUrl) {
                 playerElement.src = sourceUrl;
+                loader.style.display = 'none';
             } else {
-                alert("Stream URL is invalid.");
+                alert("Your browser does not support HLS streaming or the source URL is invalid.");
             }
         }
 
-        // Initialize player with the provided URL
-        if (streamUrl) {
+        // Start player with the stream URL
+        if (streamUrl && streamUrl !== "undefined") {
             initializePlayer(streamUrl);
         } else {
-            alert("Invalid stream URL. Please check the link.");
+            alert("Invalid stream URL. Please check and try again.");
         }
     </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 </body>
 </html>
