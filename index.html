@@ -10,7 +10,7 @@
     <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     <style>
         body {
-            background: #121212;
+            background: linear-gradient(145deg, #121212, #2c2c2c);
             color: white;
             font-family: 'Poppins', sans-serif;
             margin: 0;
@@ -29,7 +29,7 @@
             border-radius: 20px;
             padding: 20px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
-            display: none; /* Hide the player container initially */
+            display: none; /* Initially hidden */
         }
 
         h1 {
@@ -45,6 +45,34 @@
             height: 500px;
         }
 
+        #liveIndicator {
+            background: #e91e63;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+
+        .footer {
+            font-size: 0.9rem;
+            margin-top: 30px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .footer a {
+            color: #1a73e8;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Channel List */
         #channel-list {
             display: flex;
             flex-wrap: wrap;
@@ -69,28 +97,12 @@
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
         }
 
-        .footer {
-            font-size: 0.9rem;
-            margin-top: 30px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .footer a {
-            color: #1a73e8;
-            text-decoration: none;
-        }
-
-        .footer a:hover {
-            text-decoration: underline;
-        }
-
-        /* Search Box */
-        .search-box {
+        .search-box, .group-select {
             margin-bottom: 20px;
             text-align: center;
         }
 
-        .search-box input {
+        .search-box input, .group-select select {
             padding: 10px;
             font-size: 1rem;
             border-radius: 25px;
@@ -98,24 +110,37 @@
             border: none;
             outline: none;
         }
+
+        .search-box input {
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
+    <!-- Video Player -->
     <div id="videoContainer">
         <h1 id="current-channel-name">Live Stream</h1>
-        <video id="player" playsinline controls></video>
+        <div class="video-container" style="position: relative;">
+            <div id="liveIndicator">LIVE</div>
+            <video id="player" playsinline controls></video>
+        </div>
+        <div class="footer">
+            Website made by - <a href="https://t.me/StevoSure" target="_blank">StevoSure</a>
+        </div>
     </div>
-    
-    <!-- Channel List Section -->
+
+    <!-- Search and Group Selection -->
     <div class="search-box">
         <input type="text" id="search-input" placeholder="Search channels...">
     </div>
 
-    <div id="channel-list"></div>
-
-    <div class="footer">
-        Website made by - <a href="https://t.me/StevoSure" target="_blank">StevoSure</a>
+    <div class="group-select">
+        <select id="group-select">
+            <option value="all">All</option>
+        </select>
     </div>
+
+    <div id="channel-list"></div>
 
     <script>
         const CHANNELS_PER_PAGE = 50;
@@ -123,9 +148,9 @@
         let currentPage = 1;
         let currentGroup = 'all';
         let searchQuery = '';
-        
+
         // Fetch the M3U file and parse its content
-        fetch('abc.m3u')
+        fetch('abc.m3u') // Change to your actual M3U file path
             .then(response => response.ok ? response.text() : Promise.reject(response.statusText))
             .then(data => {
                 channels = parseM3U(data);
@@ -189,11 +214,7 @@
                 (!searchQuery || channel.name.toLowerCase().includes(searchQuery.toLowerCase()))
             );
 
-            const start = (currentPage - 1) * CHANNELS_PER_PAGE;
-            const end = Math.min(start + CHANNELS_PER_PAGE, filteredChannels.length);
-            const pageChannels = filteredChannels.slice(start, end);
-
-            pageChannels.forEach(channel => {
+            filteredChannels.forEach(channel => {
                 const channelDiv = document.createElement('div');
                 channelDiv.classList.add('channel');
                 channelDiv.innerHTML = `
@@ -211,6 +232,13 @@
             displayChannels();
         });
 
+        // Handle group selection
+        document.getElementById('group-select').addEventListener('change', (e) => {
+            currentGroup = e.target.value;
+            currentPage = 1;
+            displayChannels();
+        });
+
         // Play stream by using the local player
         function playStream(url, name) {
             // Show the player container
@@ -218,19 +246,35 @@
             document.getElementById('channel-list').style.display = 'none';
             document.getElementById('current-channel-name').textContent = name;
 
-            const player = new Plyr('#player', {
+            const playerElement = document.getElementById('player');
+            const loader = document.createElement('div');
+            loader.classList.add('loader');
+            document.body.appendChild(loader);
+
+            const player = new Plyr(playerElement, {
                 autoplay: true,
                 controls: ['play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen'],
                 muted: false
             });
 
-            if (Hls.isSupported()) {
+            if (Hls.isSupported() && url) {
                 const hls = new Hls();
                 hls.loadSource(url);
-                hls.attachMedia(player.media);
+                hls.attachMedia(playerElement);
+
+                loader.style.display = 'block';
+
+                hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                    loader.style.display = 'none';
+                });
+
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    console.error('HLS.js Error:', data.details);
+                    loader.style.display = 'none';
+                });
             } else {
-                // Fallback if HLS is not supported
-                document.getElementById('player').src = url;
+                playerElement.src = url;
+                loader.style.display = 'none';
             }
         }
     </script>
