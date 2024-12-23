@@ -10,7 +10,7 @@
     <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     <style>
         body {
-            background: linear-gradient(145deg, #121212, #2c2c2c);
+            background: #121212;
             color: white;
             font-family: 'Poppins', sans-serif;
             margin: 0;
@@ -29,6 +29,7 @@
             border-radius: 20px;
             padding: 20px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+            display: none; /* Hide the player container initially */
         }
 
         h1 {
@@ -38,39 +39,34 @@
             color: #f7f7f7;
         }
 
-        #player-container {
-            display: none;
-            width: 100%;
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
         #player {
             border-radius: 15px;
             width: 100%;
-            height: auto;
+            height: 500px;
         }
 
         #channel-list {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 20px;
-            margin-top: 20px;
+            gap: 15px;
+            margin-bottom: 20px;
         }
 
         .channel {
-            cursor: pointer;
-            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             width: 150px;
-            padding: 10px;
         }
 
         .channel-logo {
-            width: 100%;
-            height: 100px;
+            width: 120px;
+            height: 180px;
             object-fit: cover;
-            border-radius: 10px;
+            cursor: pointer;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
         }
 
         .footer {
@@ -83,21 +79,39 @@
             color: #1a73e8;
             text-decoration: none;
         }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Search Box */
+        .search-box {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .search-box input {
+            padding: 10px;
+            font-size: 1rem;
+            border-radius: 25px;
+            width: 300px;
+            border: none;
+            outline: none;
+        }
     </style>
 </head>
 <body>
     <div id="videoContainer">
-        <h1>Live Stream Player</h1>
-
-        <!-- Channel list will be populated here -->
-        <div id="channel-list"></div>
-
-        <!-- Player container (hidden by default) -->
-        <div id="player-container">
-            <h2 id="current-channel-name">Channel Name</h2>
-            <video id="player" playsinline controls></video>
-        </div>
+        <h1 id="current-channel-name">Live Stream</h1>
+        <video id="player" playsinline controls></video>
     </div>
+    
+    <!-- Channel List Section -->
+    <div class="search-box">
+        <input type="text" id="search-input" placeholder="Search channels...">
+    </div>
+
+    <div id="channel-list"></div>
 
     <div class="footer">
         Website made by - <a href="https://t.me/StevoSure" target="_blank">StevoSure</a>
@@ -109,8 +123,8 @@
         let currentPage = 1;
         let currentGroup = 'all';
         let searchQuery = '';
-
-        // Fetch the local M3U playlist
+        
+        // Fetch the M3U file and parse its content
         fetch('abc.m3u')
             .then(response => response.ok ? response.text() : Promise.reject(response.statusText))
             .then(data => {
@@ -120,7 +134,7 @@
             })
             .catch(error => console.error('Error fetching M3U file:', error));
 
-        // Parse the M3U file
+        // Parse the M3U file to extract channel info
         function parseM3U(data) {
             const lines = data.split('\n');
             const parsedChannels = [];
@@ -130,21 +144,25 @@
                 line = line.trim();
 
                 if (line.startsWith('#EXTINF:')) {
+                    // Push the last channel if there's any
                     if (currentChannel.name) parsedChannels.push(currentChannel);
-                    currentChannel = {};
-                    
-                    const nameMatch = line.match(/,(.+)$/);
+
+                    currentChannel = {}; // Reset for the new channel
+
+                    const nameMatch = line.match(/tvg-name="([^"]*)"/);
                     const logoMatch = line.match(/tvg-logo="([^"]*)"/);
                     const groupMatch = line.match(/group-title="([^"]*)"/);
 
                     if (nameMatch) currentChannel.name = nameMatch[1].trim();
-                    currentChannel.logo = logoMatch ? logoMatch[1] : '';
-                    currentChannel.group = groupMatch ? groupMatch[1] : 'Ungrouped';
+                    if (logoMatch) currentChannel.logo = logoMatch[1].trim();
+                    if (groupMatch) currentChannel.group = groupMatch[1].trim();
                 } else if (line && !line.startsWith('#')) {
+                    // The actual URL for the stream
                     currentChannel.url = line;
                 }
             });
 
+            // Push the last channel if it exists
             if (currentChannel.name) parsedChannels.push(currentChannel);
             return parsedChannels;
         }
@@ -164,7 +182,7 @@
         // Display channels with pagination, search, and group filter
         function displayChannels() {
             const container = document.getElementById('channel-list');
-            container.innerHTML = '';
+            container.innerHTML = ''; // Clear current channels
 
             const filteredChannels = channels.filter(channel =>
                 (currentGroup === 'all' || channel.group === currentGroup) &&
@@ -193,12 +211,28 @@
             displayChannels();
         });
 
-        // Handle group selection
-        document.getElementById('group-select').addEventListener('change', (e) => {
-            currentGroup = e.target.value === 'all' ? 'all' : e.target.value;
-            currentPage = 1;
-            displayChannels();
-        });
+        // Play stream by using the local player
+        function playStream(url, name) {
+            // Show the player container
+            document.getElementById('videoContainer').style.display = 'block';
+            document.getElementById('channel-list').style.display = 'none';
+            document.getElementById('current-channel-name').textContent = name;
+
+            const player = new Plyr('#player', {
+                autoplay: true,
+                controls: ['play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen'],
+                muted: false
+            });
+
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(url);
+                hls.attachMedia(player.media);
+            } else {
+                // Fallback if HLS is not supported
+                document.getElementById('player').src = url;
+            }
+        }
     </script>
 </body>
 </html>
