@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Stream Player</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+    <style>
+        body {
+            background: linear-gradient(145deg, #121212, #2c2c2c);
+            color: white;
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        #videoContainer {
+            max-width: 900px;
+            width: 95%;
+            background: rgba(30, 30, 30, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #f7f7f7;
+        }
+
+        #player-container {
+            display: none;
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        #player {
+            border-radius: 15px;
+            width: 100%;
+            height: auto;
+        }
+
+        #channel-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .channel {
+            cursor: pointer;
+            text-align: center;
+            width: 150px;
+            padding: 10px;
+        }
+
+        .channel-logo {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        .footer {
+            font-size: 0.9rem;
+            margin-top: 30px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .footer a {
+            color: #1a73e8;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="videoContainer">
+        <h1>Live Stream Player</h1>
+
+        <!-- Channel list will be populated here -->
+        <div id="channel-list"></div>
+
+        <!-- Player container (hidden by default) -->
+        <div id="player-container">
+            <h2 id="current-channel-name">Channel Name</h2>
+            <video id="player" playsinline controls></video>
+        </div>
+    </div>
+
+    <div class="footer">
+        Website made by - <a href="https://t.me/StevoSure" target="_blank">StevoSure</a>
+    </div>
+
+    <script>
+        const CHANNELS_PER_PAGE = 50;
+        let channels = [];
+        let currentPage = 1;
+        let currentGroup = 'all';
+        let searchQuery = '';
+
+        // Fetch the local M3U playlist
+        fetch('abc.m3u')
+            .then(response => response.ok ? response.text() : Promise.reject(response.statusText))
+            .then(data => {
+                channels = parseM3U(data);
+                populateGroups();
+                displayChannels();
+            })
+            .catch(error => console.error('Error fetching M3U file:', error));
+
+        // Parse the M3U file
+        function parseM3U(data) {
+            const lines = data.split('\n');
+            const parsedChannels = [];
+            let currentChannel = {};
+
+            lines.forEach(line => {
+                line = line.trim();
+
+                if (line.startsWith('#EXTINF:')) {
+                    if (currentChannel.name) parsedChannels.push(currentChannel);
+                    currentChannel = {};
+                    
+                    const nameMatch = line.match(/,(.+)$/);
+                    const logoMatch = line.match(/tvg-logo="([^"]*)"/);
+                    const groupMatch = line.match(/group-title="([^"]*)"/);
+
+                    if (nameMatch) currentChannel.name = nameMatch[1].trim();
+                    currentChannel.logo = logoMatch ? logoMatch[1] : '';
+                    currentChannel.group = groupMatch ? groupMatch[1] : 'Ungrouped';
+                } else if (line && !line.startsWith('#')) {
+                    currentChannel.url = line;
+                }
+            });
+
+            if (currentChannel.name) parsedChannels.push(currentChannel);
+            return parsedChannels;
+        }
+
+        // Populate group select options
+        function populateGroups() {
+            const groupSelect = document.getElementById('group-select');
+            const groups = Array.from(new Set(channels.map(channel => channel.group || 'Ungrouped')));
+            groups.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group;
+                option.textContent = group;
+                groupSelect.appendChild(option);
+            });
+        }
+
+        // Display channels with pagination, search, and group filter
+        function displayChannels() {
+            const container = document.getElementById('channel-list');
+            container.innerHTML = '';
+
+            const filteredChannels = channels.filter(channel =>
+                (currentGroup === 'all' || channel.group === currentGroup) &&
+                (!searchQuery || channel.name.toLowerCase().includes(searchQuery.toLowerCase()))
+            );
+
+            const start = (currentPage - 1) * CHANNELS_PER_PAGE;
+            const end = Math.min(start + CHANNELS_PER_PAGE, filteredChannels.length);
+            const pageChannels = filteredChannels.slice(start, end);
+
+            pageChannels.forEach(channel => {
+                const channelDiv = document.createElement('div');
+                channelDiv.classList.add('channel');
+                channelDiv.innerHTML = `
+                    <img src="${channel.logo}" alt="${channel.name}" class="channel-logo" onclick="playStream('${encodeURIComponent(channel.url)}', '${encodeURIComponent(channel.name)}')">
+                    <p>${channel.name}</p>
+                `;
+                container.appendChild(channelDiv);
+            });
+        }
+
+        // Handle search input
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            currentPage = 1;
+            displayChannels();
+        });
+
+        // Handle group selection
+        document.getElementById('group-select').addEventListener('change', (e) => {
+            currentGroup = e.target.value === 'all' ? 'all' : e.target.value;
+            currentPage = 1;
+            displayChannels();
+        });
+    </script>
+</body>
+</html>
