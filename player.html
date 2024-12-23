@@ -148,6 +148,17 @@
         const loader = document.getElementById('loader');
         const playerElement = document.getElementById('player');
 
+        // Function to replace HTTP with HTTPS and proxy the URLs
+        function updateStreamUrl(url) {
+            if (url.startsWith('http://')) {
+                // Replace HTTP with HTTPS or use a proxy if needed
+                const httpsUrl = url.replace('http://', 'https://');
+                // If HTTPS isn't supported, use a proxy service
+                return `https://m3u8-proxy-with-cors.vercel.app/m3u8-proxy?url=${encodeURIComponent(httpsUrl)}`;
+            }
+            return url;
+        }
+
         // Initialize the player using Plyr and HLS.js
         function initializePlayer(sourceUrl) {
             const player = new Plyr(playerElement, {
@@ -167,8 +178,11 @@
                     maxBufferSize: 50 * 1000 * 1000,
                 });
 
+                // Update the URL to HTTPS if needed
+                const updatedUrl = updateStreamUrl(sourceUrl);
+
                 // Load the stream URL into HLS.js
-                hls.loadSource(sourceUrl);
+                hls.loadSource(updatedUrl);
                 hls.attachMedia(player.media);
 
                 // Show loader while the stream is loading
