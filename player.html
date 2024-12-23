@@ -153,7 +153,7 @@
             if (url.startsWith('http://')) {
                 // Replace HTTP with HTTPS or use a proxy if needed
                 const httpsUrl = url.replace('http://', 'https://');
-                // If HTTPS isn't supported, use a proxy service
+                // Use proxy service if needed
                 return `https://m3u8-proxy-with-cors.vercel.app/m3u8-proxy?url=${encodeURIComponent(httpsUrl)}`;
             }
             return url;
