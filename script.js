@@ -34,7 +34,7 @@ function parseM3U(data) {
             const groupMatch = line.match(/group-title="([^"]*)"/);
 
             if (nameMatch) currentChannel.name = nameMatch[1].trim();
-            currentChannel.logo = logoMatch ? logoMatch[1] : '';
+            currentChannel.logo = logoMatch ? logoMatch[1] : ''; // Empty if no logo found
             currentChannel.group = groupMatch ? groupMatch[1] : 'Ungrouped';
         } else if (line && !line.startsWith('#')) {
             currentChannel.url = line;
@@ -76,7 +76,7 @@ function displayChannels() {
         const channelDiv = document.createElement('div');
         channelDiv.classList.add('channel');
         channelDiv.innerHTML = `
-            <img src="${channel.logo}" alt="${channel.name}" onerror="this.src='path/to/default_logo.png';" onclick="playStream('${encodeURIComponent(channel.url)}', '${encodeURIComponent(channel.name)}')">
+            <img src="${channel.logo || ''}" alt="${channel.name}" onerror="handleError(this)" onclick="playStream('${encodeURIComponent(channel.url)}', '${encodeURIComponent(channel.name)}')">
             <p>${channel.name}</p>
         `;
         container.appendChild(channelDiv);
@@ -124,4 +124,10 @@ document.getElementById('next-page').addEventListener('click', () => {
 function playStream(url, name) {
     const playerUrl = `player.html?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`;
     window.location.href = playerUrl;
+}
+
+// Error handler for image fallback to avoid infinite loading
+function handleError(imgElement) {
+    imgElement.onerror = null;  // Disable further error handling
+    imgElement.src = 'images/default_logo.png';  // Set your local fallback logo
 }
