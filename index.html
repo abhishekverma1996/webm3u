@@ -7,183 +7,74 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(145deg, #121212, #2c2c2c);
+            background: #121212;
             color: white;
             font-family: 'Poppins', sans-serif;
             margin: 0;
             padding: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
         }
-
-        h1 {
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
             text-align: center;
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-            color: #f7f7f7;
         }
-
+        .search-group-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .search-group-container input, .search-group-container select {
+            padding: 10px;
+            font-size: 1rem;
+            border-radius: 5px;
+            border: 1px solid #444;
+        }
         .channel-list {
             display: flex;
             flex-wrap: wrap;
-            justify-content: center;
             gap: 15px;
-            margin-top: 20px;
+            justify-content: center;
         }
-
         .channel {
             width: 150px;
             text-align: center;
             cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
-            border-radius: 8px;
-            overflow: hidden;
         }
-
         .channel img {
             width: 100%;
-            height: 100px;
-            object-fit: cover;
+            height: auto;
             border-radius: 8px;
         }
-
         .channel p {
-            color: #fff;
-            margin: 10px 0;
-            font-size: 1rem;
+            margin-top: 10px;
         }
-
-        .group-select, .search-box {
-            margin-bottom: 20px;
-        }
-
-        .group-select select, .search-box input {
-            padding: 10px;
-            font-size: 1rem;
-            border-radius: 25px;
-            width: 300px;
-            border: none;
-            outline: none;
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #aaa;
         }
     </style>
 </head>
 <body>
-    <h1>Channel List</h1>
-    
-    <!-- Group Selection -->
-    <div class="group-select">
-        <select id="group-select">
-            <option value="all">All</option>
-        </select>
+    <div class="container">
+        <div class="header">
+            <h1>Live TV Channels</h1>
+        </div>
+        <div class="search-group-container">
+            <input type="text" id="search-input" placeholder="Search channels..." />
+            <select id="group-select">
+                <option value="all">All</option>
+            </select>
+        </div>
+        <div id="channel-list" class="channel-list"></div>
+        <div id="page-info" style="text-align: center; margin-top: 20px;"></div>
     </div>
-
-    <!-- Search Bar -->
-    <div class="search-box">
-        <input type="text" id="search-input" placeholder="Search channels...">
+    <div class="footer">
+        <p>Website by <a href="https://t.me/StevoSure" target="_blank">StevoSure</a></p>
     </div>
-
-    <!-- Channel List -->
-    <div class="channel-list" id="channel-list"></div>
-
-    <script>
-        let channels = [];  // Will hold all the channel data
-        let currentGroup = 'all';
-        let searchQuery = '';
-
-        // Fetch M3U data and parse it
-        fetch('abc.m3u')  // Replace with your actual M3U file path
-            .then(response => response.ok ? response.text() : Promise.reject(response.statusText))
-            .then(data => {
-                channels = parseM3U(data);
-                populateGroups();
-                displayChannels();
-            })
-            .catch(error => console.error('Error fetching M3U file:', error));
-
-        // Parse the M3U file to extract channel info
-        function parseM3U(data) {
-            const lines = data.split('\n');
-            const parsedChannels = [];
-            let currentChannel = {};
-
-            lines.forEach(line => {
-                line = line.trim();
-
-                if (line.startsWith('#EXTINF:')) {
-                    if (currentChannel.name) parsedChannels.push(currentChannel);  // Save previous channel
-
-                    currentChannel = {};  // Reset for new channel
-
-                    const nameMatch = line.match(/tvg-name="([^"]*)"/);
-                    const logoMatch = line.match(/tvg-logo="([^"]*)"/);
-                    const groupMatch = line.match(/group-title="([^"]*)"/);
-
-                    if (nameMatch) currentChannel.name = nameMatch[1].trim();
-                    if (logoMatch) currentChannel.logo = logoMatch[1].trim();
-                    if (groupMatch) currentChannel.group = groupMatch[1].trim();
-                } else if (line && !line.startsWith('#')) {
-                    currentChannel.url = line;
-                }
-            });
-
-            if (currentChannel.name) parsedChannels.push(currentChannel);  // Push last channel
-            return parsedChannels;
-        }
-
-        // Populate group options
-        function populateGroups() {
-            const groupSelect = document.getElementById('group-select');
-            const groups = Array.from(new Set(channels.map(channel => channel.group || 'Ungrouped')));
-
-            groups.forEach(group => {
-                const option = document.createElement('option');
-                option.value = group;
-                option.textContent = group;
-                groupSelect.appendChild(option);
-            });
-        }
-
-        // Display channels based on search and group selection
-        function displayChannels() {
-            const container = document.getElementById('channel-list');
-            container.innerHTML = '';  // Clear existing channels
-
-            const filteredChannels = channels.filter(channel =>
-                (currentGroup === 'all' || channel.group === currentGroup) &&
-                (!searchQuery || channel.name.toLowerCase().includes(searchQuery.toLowerCase()))
-            );
-
-            filteredChannels.forEach(channel => {
-                const channelDiv = document.createElement('div');
-                channelDiv.classList.add('channel');
-                channelDiv.innerHTML = `
-                    <img src="${channel.logo}" alt="${channel.name}" onclick="playChannel('${encodeURIComponent(channel.url)}', '${encodeURIComponent(channel.name)}')">
-                    <p>${channel.name}</p>
-                `;
-                container.appendChild(channelDiv);
-            });
-        }
-
-        // Handle search input
-        document.getElementById('search-input').addEventListener('input', (e) => {
-            searchQuery = e.target.value;
-            displayChannels();
-        });
-
-        // Handle group selection
-        document.getElementById('group-select').addEventListener('change', (e) => {
-            currentGroup = e.target.value;
-            displayChannels();
-        });
-
-        // Play selected channel
-        function playChannel(url, name) {
-            const playerUrl = `player.html?url=${url}&name=${name}`;
-            window.location.href = playerUrl;  // Redirect to player page
-        }
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
