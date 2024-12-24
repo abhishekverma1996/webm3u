@@ -201,6 +201,7 @@
                     }
                 });
             } else if (sourceUrl) {
+                // Fallback to using the regular HTML5 video element
                 playerElement.src = sourceUrl;
                 loader.style.display = 'none';
             } else {
